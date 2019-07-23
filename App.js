@@ -5,6 +5,8 @@ import {
   StyleSheet,
 } from 'react-native';
 
+import firebase from 'react-native-firebase';
+
 // eslint-disable-next-line no-undef
 if (__DEV__) {
   import('./reactotronconfig');
