@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   Alert,
-  AsyncStorage,
 } from 'react-native';
 
 import firebase from 'react-native-firebase';
@@ -15,89 +14,40 @@ if (__DEV__) {
 }
 
 class App extends Component {
-  async componentDidMount() {
-    await this.checkPermission();
-    await this.createNotificationListeners();
-  }
+  componentDidMount() {
+    // Build a channel
+    const channel = new firebase.notifications.Android.Channel('test-channel', 'Test Channel', firebase.notifications.Android.Importance.Max)
+      .setDescription('My apps test channel');
+    // Create the channel
+    firebase.notifications().android.createChannel(channel);
+    console.log('channel created');
 
-  // componentWillUnmount() {
-  //   this.notificationListener();
-  //   this.notificationOpenedListener();
-  // }
-
-  async getToken() {
-    let fcmToken = await AsyncStorage.getItem('fcmToken');
-    console.log('fcmToken', fcmToken);
-    if (!fcmToken) {
-      fcmToken = await firebase.messaging().getToken();
-      if (fcmToken) {
-        // user has a device token
-        await AsyncStorage.setItem('fcmToken', fcmToken);
-      }
-    }
-  }
-
-  async checkPermission() {
-    const enabled = await firebase.messaging().hasPermission();
-    if (enabled) {
-      this.getToken();
-    } else {
-      this.requestPermission();
-    }
-  }
-
-  async requestPermission() {
-    try {
-      await firebase.messaging().requestPermission();
-      // User has authorised
-      this.getToken();
-    } catch (error) {
-      // User has rejected permissions
-      console.log('permission rejected');
-    }
-  }
-
-  async createNotificationListeners() {
-    /*
-    * Triggered when a particular notification has been received in foreground
-    * */
-    console.log('notificationListeners created start');
-    this.notificationListener = firebase.notifications().onNotification((notification) => {
-      console.log('hello this is a notificationlistener');
-      const { title, body } = notification;
-      this.showAlert(title, body);
+    this.removeNotificationDisplayedListener = firebase.notifications().onNotificationDisplayed((notification) => {
+      // Process your notification as required
+      // ANDROID: Remote notifications do not contain the channel ID. You will have to specify this manually if you'd like to re-display the notification.
     });
-  
-    /*
-    * If your app is in background, you can listen for when a notification is clicked / tapped / opened as follows:
-    * */
-    this.notificationOpenedListener = firebase.notifications().onNotificationOpened((notificationOpen) => {
-      console.log('hello this is a notificationlistener2');
-      const { title, body } = notificationOpen.notification;
-      this.showAlert(title, body);
-    });
-  
-    /*
-    * If your app is closed, you can check if it was opened by a notification being clicked / tapped / opened as follows:
-    * */
-    const notificationOpen = await firebase.notifications().getInitialNotification();
-    if (notificationOpen) {
-      console.log('hello this is a notificationlistener3');
-      const { title, body } = notificationOpen.notification;
-      this.showAlert(title, body);
-    }
-    /*
-    * Triggered for data only payload in foreground
-    * */
-    this.messageListener = firebase.messaging().onMessage((message) => {
-    // process data message
-    console.log('hello this is a notificationlistener4');
-    console.log(JSON.stringify(message));
-    });
+    this.removeNotificationListener = firebase.notifications().onNotification((notification) => {
+      // Process your notification as required
+      console.log('hey we got a notification');
+      const newNotification = new firebase.notifications.Notification({
+        sound: 'default',
+        show_in_foreground: true,
+      })
+        .setNotificationId('notificationId')
+        .setTitle('My notification title')
+        .setBody('My notification body')
+        .android.setChannelId('test-channel')
+        .android.setSmallIcon('ic_launcher');
 
-    console.log('notificationListeners created end');
+      firebase.notifications().displayNotification(newNotification);
+    });
   }
-  
+
+  componentWillUnmount() {
+    this.removeNotificationDisplayedListener();
+    this.removeNotificationListener();
+  }
+
   showAlert(title, body) {
     Alert.alert(
       title, body,
